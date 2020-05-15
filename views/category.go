@@ -25,10 +25,18 @@ type CategoryResponse struct {
 	RegCategoryResponse
 }
 
-
-
 func AddCategory(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("categoryName")
+	// 根据请求body创建一个json解析器实例
+	decoder := json.NewDecoder(r.Body)
+	// 用于存放参数key=value数据
+	var params map[string]string
+	// 解析参数 存入map
+	decoder.Decode(&params)
+	name := params["categoryName"]
+	parentId := params["parentId"]
+	if parentId == "" {
+		parentId = "0"
+	}
 	filter := bson.M{"name": name}
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	collection := models.Client.Database("admin_db").Collection("category")
@@ -37,8 +45,8 @@ func AddCategory(w http.ResponseWriter, r *http.Request) {
 	var errResponse ErrResponse
 	errResponse.Status = 1
 	if err != nil {
-		fmt.Println(name)
 		category.Name = name
+		category.ParentId = parentId
 		_, err = collection.InsertOne(ctx, &category)
 		if err != nil {
 			fmt.Printf("插入数据失败：%v\n", err)
@@ -59,9 +67,14 @@ func AddCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetCategoryList(w http.ResponseWriter, r *http.Request) {
+	parentId := r.URL.Query().Get("parentId")
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	collection := models.Client.Database("admin_db").Collection("category")
-	cur, err := collection.Find(ctx, bson.M{})
+	filter := bson.M{}
+	if parentId != "" {
+		filter["parentId"] = parentId
+	}
+	cur, err := collection.Find(ctx, filter)
 	var errResponse ErrResponse
 	errResponse.Status = 1
 	if err != nil {
@@ -76,7 +89,7 @@ func GetCategoryList(w http.ResponseWriter, r *http.Request) {
 		var category *models.Category
 		err = cur.Decode(&category)
 		if err != nil {
-			fmt.Printf("获取用户失败: %v\n", err)
+			fmt.Printf("获取分类失败: %v\n", err)
 			continue
 		}
 		categories = append(categories, category)
@@ -90,7 +103,7 @@ func GetCategoryList(w http.ResponseWriter, r *http.Request) {
 }
 
 func GetCategory(w http.ResponseWriter, r *http.Request) {
-	cid :=r.FormValue("categoryId")
+	cid := r.FormValue("categoryId")
 	objId, _ := primitive.ObjectIDFromHex(cid)
 	var category models.Category
 	category.Id = objId
@@ -114,8 +127,14 @@ func GetCategory(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateCategory(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("categoryName")
-	cid := r.FormValue("categoryId")
+	// 根据请求body创建一个json解析器实例
+	decoder := json.NewDecoder(r.Body)
+	// 用于存放参数key=value数据
+	var params map[string]string
+	// 解析参数 存入map
+	decoder.Decode(&params)
+	name := params["categoryName"]
+	cid := params["categoryId"]
 	objId, _ := primitive.ObjectIDFromHex(cid)
 	var category models.Category
 	category.Id = objId
