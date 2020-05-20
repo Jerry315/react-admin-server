@@ -29,7 +29,7 @@ type Category struct {
 
 type Product struct {
 	Id         primitive.ObjectID `json:"_id" bson:"_id,omitempty"`
-	CategoryId string             `json:"category_id" bson:"categoryId"`
+	CategoryId string             `json:"categoryId" bson:"categoryId"`
 	Name       string             `json:"name" bson:"name"`
 	Price      string             `json:"price" bson:"price"`
 	Desc       string             `json:"desc" bson:"desc"`
@@ -48,7 +48,6 @@ type Role struct {
 }
 
 type Img struct {
-	Url  string `json:"url" bson:"url"`
 	Name string `json:"name" bson:"name"`
 }
 

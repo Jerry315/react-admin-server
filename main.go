@@ -24,6 +24,7 @@ func main() {
 	router.HandleFunc("/manage/product/add", views.AddProduct).Methods("POST")
 	router.HandleFunc("/manage/product/update", views.UpdateProduct).Methods("POST")
 	router.HandleFunc("/manage/product/updateStatus", views.UpdateProductStatus).Methods("POST")
+	router.HandleFunc("/manage/img/{img}", views.GetImg).Methods("GET")
 	router.HandleFunc("/manage/img/upload", views.UploadImg).Methods("POST")
 	router.HandleFunc("/manage/img/delete", views.DeleteImg).Methods("POST")
 	router.HandleFunc("/manage/role/add", views.AddRole).Methods("POST")

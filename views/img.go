@@ -19,8 +19,15 @@ type ImgResponse struct {
 	Data   *models.Img `json:"data"`
 }
 
-func UploadImg(w http.ResponseWriter, req *http.Request) {
-	uploadFile, handle, err := req.FormFile("image")
+func GetImg(w http.ResponseWriter, r *http.Request) {
+	tmp := strings.Split(r.RequestURI, "/")
+	img := "./upload/" + tmp[len(tmp)-1]
+	fmt.Println(img)
+	http.ServeFile(w, r, img)
+}
+
+func UploadImg(w http.ResponseWriter, r *http.Request) {
+	uploadFile, handle, err := r.FormFile("image")
 	var errResponse ErrResponse
 	errResponse.Status = 1
 	if err != nil {
@@ -42,32 +49,44 @@ func UploadImg(w http.ResponseWriter, req *http.Request) {
 	// 保存图片
 
 	var img models.Img
-	img.Name = handle.Filename
-	img.Url = "/upload/" + handle.Filename
+	imgName := handle.Filename
+	img.Name = imgName
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	collection := models.Client.Database("admin_db").Collection("img")
-	_, err = collection.Find(ctx, bson.M{"name": handle.Filename})
+	filter := bson.M{"name": imgName}
+	fmt.Println(filter)
+	err = collection.FindOne(ctx, bson.M{"name": imgName}).Decode(&img)
+	fmt.Printf("查询结果，%v\n", err)
 	if err != nil {
-		saveFile, _ := os.OpenFile("../upload/images"+handle.Filename, os.O_WRONLY|os.O_CREATE, 0666)
+
+		saveFile, _ := os.OpenFile("./upload/"+imgName, os.O_WRONLY|os.O_CREATE, 0666)
 		io.Copy(saveFile, uploadFile)
 
 		defer uploadFile.Close()
 		collection.InsertOne(ctx, &img)
-		collection.FindOne(ctx, bson.M{"name": handle.Filename}).Decode(&img)
+		collection.FindOne(ctx, bson.M{"name": imgName}).Decode(&img)
 		var imgResponse ImgResponse
 		imgResponse.Status = 0
 		imgResponse.Data = &img
 		json.NewEncoder(w).Encode(imgResponse)
 	} else {
-		fmt.Println("图片已存在，请勿充分上传")
-		errResponse.Msg = "图片已存在，请勿充分上传"
+		fmt.Printf("图片已存在，请勿重复上传,%v\n", err)
+		errResponse.Status = 0
+		errResponse.Msg = "图片已存在，请勿重复上传"
 		json.NewEncoder(w).Encode(errResponse)
 		return
 	}
+
 }
 
 func DeleteImg(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("name")
+	// 根据请求body创建一个json解析器实例
+	decoder := json.NewDecoder(r.Body)
+	// 用于存放参数key=value数据
+	var params map[string]string
+	// 解析参数 存入map
+	decoder.Decode(&params)
+	name := params["name"]
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	collection := models.Client.Database("admin_db").Collection("img")
 	filter := bson.M{"name": name}
