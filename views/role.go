@@ -7,8 +7,6 @@ import (
 	"go.mongodb.org/mongo-driver/bson/primitive"
 	"gopkg.in/mgo.v2/bson"
 	"net/http"
-	"strconv"
-	"strings"
 	"test/admin-server/models"
 	"time"
 )
@@ -24,16 +22,24 @@ type RoleListResponse struct {
 }
 
 func AddRole(w http.ResponseWriter, r *http.Request) {
-	name := r.FormValue("roleName")
+	// 根据请求body创建一个json解析器实例
+	decoder := json.NewDecoder(r.Body)
+	// 用于存放参数key=value数据
+	var params map[string]string
+	// 解析参数 存入map
+	decoder.Decode(&params)
+	name := params["roleName"]
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	collection := models.Client.Database("admin_db").Collection("role")
 	filter := bson.M{"name": name}
-	_, err := collection.Find(ctx, filter)
+	var role models.Role
+	err := collection.FindOne(ctx, filter).Decode(&role)
 	if err != nil {
-		var role models.Role
 		var roleResponse RoleResponse
 		role.Name = name
+		role.CreateTime = time.Now()
 		collection.InsertOne(ctx, &role)
+		collection.FindOne(ctx, filter).Decode(&role)
 		roleResponse.Status = 0
 		roleResponse.Data = &role
 		json.NewEncoder(w).Encode(roleResponse)
@@ -67,12 +73,19 @@ func GetRoleList(w http.ResponseWriter, r *http.Request) {
 }
 
 func UpdateRole(w http.ResponseWriter, r *http.Request) {
-	rid := r.FormValue("_id")
+	// 根据请求body创建一个json解析器实例
+	decoder := json.NewDecoder(r.Body)
+	// 用于存放参数key=value数据
+	var params map[string]map[string]interface{}
+	// 解析参数 存入map
+	decoder.Decode(&params)
+	data := params["role"]
+	rid := data["_id"].(string)
 	objId, _ := primitive.ObjectIDFromHex(rid)
 	filter := bson.M{"_id": objId}
-	menus := strings.Split(r.FormValue("menus"), ",")
-	auth_time, _ := strconv.Atoi(r.FormValue("auth_time"))
-	auth_name := r.FormValue("auth_name")
+	menus := data["menus"]
+	auth_time := time.Now().Local()
+	auth_name := data["auth_name"]
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	collection := models.Client.Database("admin_db").Collection("role")
 	var role models.Role
@@ -80,7 +93,7 @@ func UpdateRole(w http.ResponseWriter, r *http.Request) {
 	var errResponse ErrResponse
 	errResponse.Status = 1
 	if err != nil {
-		fmt.Printf("角色不存在，%v\n", err)
+		fmt.Printf("角色不存在，%#v\n", err)
 		errResponse.Msg = "角色不存在"
 	} else {
 		updateOption := bson.M{"$set": bson.M{"menus": menus, "auth_time": auth_time, "auth_name": auth_name}}

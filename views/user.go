@@ -22,27 +22,35 @@ type RegResponse struct {
 }
 
 type LoginResponse struct {
-	RegResponse
+	Status int `json:"status"`
+	Data   struct {
+		Id         primitive.ObjectID `json:"_id" `
+		UserName   string             `json:"username"`
+		PassWord   string             `json:"password"`
+		Phone      string             `json:"phone" `
+		Email      string             `json:"email"`
+		CreateTime time.Time          `json:"create_time"`
+		RoleId     string             `json:"role_id"`
+		Level      int                `json:"level"`
+		Menus      []string           `json:"menus"`
+	} `json:"data"`
 }
 
 type UpdateResponse struct {
-	RegResponse
+	Status int          `json:"status"`
+	Data   *models.User `json:"data"`
 }
 
 type UserResponseList struct {
 	Status int `json:"status"`
 	Data   struct {
-		Users []*models.User
+		Users []*models.User `json:"users"`
 	} `json:"data"`
 }
 
 func Register(w http.ResponseWriter, r *http.Request) {
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	collection := models.Client.Database("admin_db").Collection("user")
-	//name := r.FormValue("username")
-	//password := r.FormValue("password")
-	//phone := r.FormValue("phone")
-	//email := r.FormValue("email")
 	// 根据请求body创建一个json解析器实例
 	decoder := json.NewDecoder(r.Body)
 	// 用于存放参数key=value数据
@@ -53,9 +61,11 @@ func Register(w http.ResponseWriter, r *http.Request) {
 	password := params["password"]
 	phone := params["phone"]
 	email := params["email"]
+	roleId := params["role_id"]
 	var user models.User
 	filter := bson.M{"username": name}
 	err := collection.FindOne(ctx, filter).Decode(&user)
+
 	var errResponse ErrResponse
 	if err != nil {
 		fmt.Println("暂未查到此用户可以注册")
@@ -63,6 +73,7 @@ func Register(w http.ResponseWriter, r *http.Request) {
 		user.UserName = name
 		user.Phone = phone
 		user.Email = email
+		user.RoleId = roleId
 		user.CreateTime = time.Now()
 		_, err = collection.InsertOne(ctx, &user)
 		if err != nil {
@@ -71,10 +82,10 @@ func Register(w http.ResponseWriter, r *http.Request) {
 			errResponse.Msg = "插入注册数据失败"
 			json.NewEncoder(w).Encode(errResponse)
 		} else {
-			collection.FindOne(ctx, filter).Decode(&user)
 			fmt.Println("用户注册成功")
+			collection.FindOne(ctx, filter).Decode(&user)
 			var regResponse RegResponse
-			regResponse.Status = 1
+			regResponse.Status = 0
 			regResponse.Data = &user
 			json.NewEncoder(w).Encode(regResponse)
 		}
@@ -116,32 +127,40 @@ func Login(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(errResponse)
 		return
 	}
+	var role models.Role
+	roleCollection := models.Client.Database("admin_db").Collection("role")
+	roleObjId, _ := primitive.ObjectIDFromHex(user.RoleId)
+	err = roleCollection.FindOne(ctx, bson.M{"_id": roleObjId}).Decode(&role)
 	var loginResponse LoginResponse
 	loginResponse.Status = 0
-	loginResponse.Data = user
+	loginResponse.Data.Id = user.Id
+	loginResponse.Data.CreateTime = user.CreateTime
+	loginResponse.Data.RoleId = user.RoleId
+	loginResponse.Data.Email = user.Email
+	loginResponse.Data.Phone = user.Phone
+	loginResponse.Data.Level = user.Level
+	loginResponse.Data.UserName = user.UserName
+	loginResponse.Data.Menus = role.Menus
 	json.NewEncoder(w).Encode(loginResponse)
 }
 
 func Update(w http.ResponseWriter, r *http.Request) {
-	//name := r.FormValue("username")
-	//password := r.FormValue("password")
-	//phone := r.FormValue("phone")
-	//email := r.FormValue("email")
-	//role_id := r.FormValue("role_id")
+
 	// 根据请求body创建一个json解析器实例
 	decoder := json.NewDecoder(r.Body)
 	// 用于存放参数key=value数据
 	var params map[string]string
 	// 解析参数 存入map
 	decoder.Decode(&params)
+	uid := params["_id"]
 	name := params["username"]
-	password := params["password"]
 	phone := params["phone"]
 	email := params["email"]
-	role_id := params["role_id"]
+	roleId := params["role_id"]
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	var user *models.User
-	filter := bson.M{"username": name}
+	objId, _ := primitive.ObjectIDFromHex(uid)
+	filter := bson.M{"_id": objId}
 	collection := models.Client.Database("admin_db").Collection("user")
 	err := collection.FindOne(ctx, filter).Decode(&user)
 	var errResponse ErrResponse
@@ -153,26 +172,7 @@ func Update(w http.ResponseWriter, r *http.Request) {
 		json.NewEncoder(w).Encode(errResponse)
 		return
 	}
-	if password == "" || phone == "" || email == "" {
-		fmt.Println("无更新内容")
-
-		errResponse.Msg = "无更新内容"
-		json.NewEncoder(w).Encode(errResponse)
-		return
-	}
-	update := bson.M{}
-	if password != "" {
-		update["password"] = password
-	}
-	if phone != "" {
-		update["phone"] = phone
-	}
-	if email != "" {
-		update["email"] = email
-	}
-	if role_id != "" {
-		update["role_id"] = role_id
-	}
+	update := bson.M{"phone": phone, "email": email, "role_id": roleId}
 	_, err = collection.UpdateOne(ctx, filter, bson.M{"$set": update})
 	if err != nil {
 		errResponse.Msg = "无更新内容"
@@ -191,7 +191,7 @@ func GetAllUsers(w http.ResponseWriter, r *http.Request) {
 	var users []*models.User
 	ctx, _ := context.WithTimeout(context.Background(), 30*time.Second)
 	collection := models.Client.Database("admin_db").Collection("user")
-	cur, err := collection.Find(ctx, bson.M{})
+	cur, err := collection.Find(ctx, bson.M{"level": 0})
 	var errResponse ErrResponse
 	errResponse.Status = 1
 	if err != nil {

@@ -30,6 +30,5 @@ func main() {
 	router.HandleFunc("/manage/role/add", views.AddRole).Methods("POST")
 	router.HandleFunc("/manage/role/list", views.GetRoleList).Methods("GET")
 	router.HandleFunc("/manage/role/update", views.UpdateRole).Methods("POST")
-
 	log.Fatal(http.ListenAndServe(":8080", router))
 }

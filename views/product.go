@@ -35,7 +35,6 @@ type ProductResponse struct {
 }
 
 func AddProduct(w http.ResponseWriter, r *http.Request) {
-	fmt.Println("添加新产品")
 	// 根据请求body创建一个json解析器实例
 	decoder := json.NewDecoder(r.Body)
 	// 用于存放参数key=value数据
@@ -43,7 +42,6 @@ func AddProduct(w http.ResponseWriter, r *http.Request) {
 	// 解析参数 存入map
 	decoder.Decode(&params)
 	data := params["product"]
-	fmt.Println(data)
 	filter := bson.M{"name": data["name"].(string)}
 	ctx, _ := context.WithTimeout(context.Background(), 5*time.Second)
 	collection := models.Client.Database("admin_db").Collection("product")
@@ -171,6 +169,7 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request) {
 	pid := data["_id"]
 	name := data["name"]
 	desc := data["desc"]
+	price := data["price"]
 	detail := data["detail"]
 	categoryId := data["categoryId"]
 	imgs := data["imgs"]
@@ -187,7 +186,7 @@ func UpdateProduct(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("更新失败，暂未该记录")
 		errResponse.Msg = "更新失败，暂未该记录"
 	} else {
-		updateOption := bson.M{"categoryId": categoryId, "name": name, "desc": desc, "detail": detail, "imgs": imgs}
+		updateOption := bson.M{"categoryId": categoryId, "name": name, "desc": desc, "detail": detail, "imgs": imgs, "price": price}
 
 		_, err = collection.UpdateOne(ctx, filter, bson.M{"$set": updateOption})
 		errResponse.Status = 0

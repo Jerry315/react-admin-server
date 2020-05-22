@@ -19,12 +19,13 @@ type User struct {
 	Email      string             `json:"email" bson:"email"`
 	CreateTime time.Time          `json:"create_time" bson:"create_time"`
 	RoleId     string             `json:"role_id" bson:"role_id"`
+	Level      int                `json:"level" bson:"level"`
 }
 
 type Category struct {
 	Id       primitive.ObjectID `json:"_id" bson:"_id,omitempty"`
 	Name     string             `json:"name" bson:"name"`
-	ParentId string `json:"parentId" bson:"parentId"`
+	ParentId string             `json:"parentId" bson:"parentId"`
 }
 
 type Product struct {
@@ -43,7 +44,7 @@ type Role struct {
 	Name       string             `json:"name" bson:"name"`
 	AuthName   string             `json:"auth_name" bson:"auth_name"`
 	CreateTime time.Time          `json:"create_time" bson:"create_time"`
-	AuthTime   int                `json:"auth_time" bson:"auth_time"`
+	AuthTime   time.Time          `json:"auth_time" bson:"auth_time"`
 	Menus      []string           `json:"menus" bson:"menus"`
 }
 
